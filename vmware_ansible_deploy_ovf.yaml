@@ -1,0 +1,67 @@
+---
+- hosts: localhost
+
+  vars:
+    vcenter: 'esxi'
+    login: 'root'
+    datastore: datastore1
+    folder: '/'
+    vms:
+      - kube01
+      - kube02
+      - kube03      
+      - kube04
+  
+  vars_prompt:
+    name: passwd
+    prompt: "{{ vcenter }} passwd for {{ login }} ? >>> "
+
+  tasks:
+
+  - name: Criando {{ item }}
+    vmware_deploy_ovf:
+      validate_certs: False
+      hostname: '{{ vcenter }}'
+      username: '{{ login }}'
+      password: '{{ passwd }}'
+      ovf: '/home/fulano/CentOS7_T.ovf'
+      name: "{{ item }}"
+      properties:
+        password: "defaultPass"
+        ntpserver: "192.168.1.26,192.168.1.27"
+      disk_provisioning: eagerZeroedThick
+      networks: 
+        "Management Network": 'VM Network'
+      datastore: '{{ datastore }}'
+      folder: "{{ folder }}"
+      power_on: no
+    delegate_to: localhost
+    with_items: "{{vms}}"
+
+  - name: Configurando {{ item }}
+    vmware_guest:
+      validate_certs: False
+      hostname: '{{ vcenter }}'
+      username: '{{ login }}'
+      password: '{{ passwd }}'
+      name: "{{ item }}"
+      hardware:
+        memory_mb: 2048
+        num_cpus: 2
+        num_cpu_cores_per_socket: 2
+      customization:
+        domain: contoso.com.br
+        hostname: "{{ item }}"
+    with_items: "{{vms}}"
+    delegate_to: localhost
+
+  - name: Ligando Maquina {{ item }}
+    vmware_guest:
+      validate_certs: False
+      hostname: '{{ vcenter }}'
+      username: '{{ login }}'
+      password: '{{ passwd }}'
+      name: "{{ item }}"
+      state: poweredon
+    with_items: "{{vms}}"
+    delegate_to: localhost
